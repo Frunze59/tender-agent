@@ -1,6 +1,6 @@
 # Committed config for GitHub Actions. Set recipients via GitHub secret EMAIL_TO (and SMTP_* secrets).
 # Edit sources/keywords here. Local runs: use config.yaml + .env (not committed).
-# Schedule is in .github/workflows/tender-daily.yml (cron is UTC).
+# Schedule is in .github/workflows/tender-daily.yml (daily ~17:00 Europe/Tallinn, EET/EEST-aware).
 #
 # Matching: use `keyword_pillars` for AND between pillars, OR within each pillar.
 #   - activity AND geography are required (each needs ≥1 term hit in title, summary, and link text).
@@ -226,6 +226,6 @@ email:
 
 # Used only by `python -m tender_agent daemon` (optional). Cron users can ignore.
 schedule:
-  hour: 8
+  hour: 17
   minute: 0
-  timezone: local
+  timezone: Europe/Tallinn

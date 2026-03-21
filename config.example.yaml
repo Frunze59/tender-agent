@@ -1,8 +1,8 @@
 # Copy to config.yaml and edit. Paths are relative to CWD unless absolute.
 #
-# Daily 08:00 via cron (one shot per day; uses server local timezone unless you set TZ=):
-#   0 8 * * * cd /path/to/tender-agent && .venv/bin/python -m tender_agent run
-#   For Estonia: 0 8 * * * TZ=Europe/Tallinn cd /path/to/tender-agent && .venv/bin/python -m tender_agent run
+# Daily run via cron (one shot per day). GitHub Actions uses ~17:00 Europe/Tallinn (see tender-daily.yml).
+#   17:00 Tallinn, DST-aware: 0 17 * * * TZ=Europe/Tallinn cd /path/to/tender-agent && .venv/bin/python -m tender_agent run
+#   Other: 0 8 * * * cd /path/to/tender-agent && .venv/bin/python -m tender_agent run
 #
 # Or run `python -m tender_agent daemon` and set schedule below (uses APScheduler).
 #
@@ -231,6 +231,6 @@ email:
 
 # Used only by `python -m tender_agent daemon` (optional). Cron users can ignore.
 schedule:
-  hour: 8
+  hour: 17
   minute: 0
-  timezone: local
+  timezone: Europe/Tallinn
