@@ -1,0 +1,61 @@
+# Tender agent on a schedule (GitHub-hosted runner).
+#
+# Secrets → Settings → Secrets and variables → Actions → New repository secret
+#   Required: SMTP_HOST, SMTP_USER, SMTP_PASSWORD, SMTP_FROM, EMAIL_TO
+#   Optional: SMTP_PORT (empty = 587), SMTP_USE_TLS (empty = true)
+#   Optional: DEEPL_AUTH_KEY, DEEPL_API_KEY, DEEPL_API_URL (if translation enabled in config)
+#
+# Cron is UTC. 0 6 * * * ≈ 08:00 in Estonia (EET, UTC+2). For EEST (UTC+3) use 0 5 * * * in summer
+# or pick one UTC hour that is acceptable year-round.
+#
+# Manual test: Actions → "Tender agent daily" → Run workflow.
+
+name: Tender agent daily
+
+on:
+  schedule:
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: tender-agent-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    env:
+      SMTP_HOST: ${{ secrets.SMTP_HOST }}
+      SMTP_PORT: ${{ secrets.SMTP_PORT }}
+      SMTP_USER: ${{ secrets.SMTP_USER }}
+      SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+      SMTP_FROM: ${{ secrets.SMTP_FROM }}
+      SMTP_USE_TLS: ${{ secrets.SMTP_USE_TLS }}
+      EMAIL_TO: ${{ secrets.EMAIL_TO }}
+      DEEPL_AUTH_KEY: ${{ secrets.DEEPL_AUTH_KEY }}
+      DEEPL_API_KEY: ${{ secrets.DEEPL_API_KEY }}
+      DEEPL_API_URL: ${{ secrets.DEEPL_API_URL }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Cache dedupe database
+        uses: actions/cache@v4
+        with:
+          path: data/seen.db
+          key: tender-seen-db-v1-${{ github.repository_id }}
+
+      - name: Run tender agent
+        run: python -m tender_agent run --config config.github.yaml --db data/seen.db

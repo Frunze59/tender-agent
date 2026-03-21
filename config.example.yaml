@@ -1,0 +1,247 @@
+# Copy to config.yaml and edit. Paths are relative to CWD unless absolute.
+#
+# Daily 08:00 via cron (one shot per day; uses server local timezone unless you set TZ=):
+#   0 8 * * * cd /path/to/tender-agent && .venv/bin/python -m tender_agent run
+#   For Estonia: 0 8 * * * TZ=Europe/Tallinn cd /path/to/tender-agent && .venv/bin/python -m tender_agent run
+#
+# Or run `python -m tender_agent daemon` and set schedule below (uses APScheduler).
+#
+# Matching: use `keyword_pillars` for AND between pillars, OR within each pillar.
+#   - activity AND geography are required (each needs ≥1 term hit in title, summary, and link text).
+#   - funding: omit this key or use [] to skip; if non-empty, ≥1 term must also match.
+# Language (LV/LT portals such as IUB, CVP IS):
+#   - `additional_locales`: extra pillar word-lists (lv, lt, …). Each locale merges over the primary
+#     lists; a notice matches if ANY variant passes full pillar AND logic (primary OR each locale).
+#   - OR enable `translation` (DeepL): set `content_locale` on the source (e.g. lv, lt) and API key in .env;
+#     title+summary are translated to `target_lang` then matched with the primary pillars only.
+# Legacy: if you remove keyword_pillars, flat `keywords` uses OR across all terms.
+
+keyword_pillars:
+  activity:
+    - study visit
+    - study tour
+    - educational visit
+    - learning visit
+    - field trip
+    - site visit
+    - exchange visit
+    - study programme
+    - capacity building
+    - study exchange
+    - peer learning
+    - educational trip
+    - knowledge exchange
+
+  geography:
+    - Estonia
+    - Latvia
+    - Lithuania
+    - Finland
+    - Sweden
+    - Norway
+    - Denmark
+    - Iceland
+    - Ukraine
+    - Moldova
+    - Romania
+    - Baltic
+    - Baltic states
+    - Baltic countries
+    - Scandinavia
+    - Scandinavian
+    - Nordic
+    - Nordic countries
+    - Baltic-Nordic
+    - Northern Europe
+
+  # Remove the `funding` key entirely (or set to []) to only require activity + geography.
+  funding:
+    - Erasmus+
+    - ESF
+    - ERDF
+    - Interreg
+    - Horizon
+    - EEA grants
+    - study visit programme
+    - mobility programme
+    - transnational
+    - cross-border
+
+  # Latvian / Lithuanian overlays (extend as needed). Empty pillar keys inherit primary lists.
+  additional_locales:
+    lv:
+      activity:
+        - mācību vizīte
+        - mācību brauciens
+        - studiju brauciens
+        - pieredzes apmaiņa
+        - kapacitātes stiprināšana
+        - zināšanu apmaiņa
+      geography:
+        - Latvija
+        - Lietuva
+        - Igaunija
+        - Zviedrija
+        - Somija
+        - Norvēģija
+        - Dānija
+        - Islande
+        - Baltijas
+        - Ziemeļvalstis
+        - Skandināvija
+    lt:
+      activity:
+        - studijų vizitas
+        - mokymosi vizitas
+        - gebėjimų stiprinimas
+        - žinių mainai
+        - mainų vizitas
+      geography:
+        - Lietuva
+        - Latvija
+        - Estija
+        - Švedija
+        - Suomija
+        - Norvegija
+        - Danija
+        - Islandija
+        - Baltijos
+        - Šiaurės šalys
+        - Skandinavija
+
+keywords: []
+
+# Optional: translate title+summary via DeepL before matching (primary pillars only).
+# Set DEEPL_AUTH_KEY or DEEPL_API_KEY. Use `deepl_api_url: https://api.deepl.com` for Pro.
+translation:
+  provider: none
+  target_lang: EN
+  content_locales:
+    - lv
+    - lt
+
+# Each source needs a stable `id` (used for deduplication).
+# `enabled: false` skips fetching (use for portal home URLs until you set a real RSS/Atom feed or html_links).
+sources:
+  # CIVIC.MD — official Joomla feed (same content as the listing page).
+  # Listing: https://civic.md/anunturi/achizitii.html
+  - id: civic_md_achizitii
+    name: CIVIC.MD — Achiziții
+    type: rss
+    url: https://civic.md/anunturi/achizitii.feed?type=rss
+
+  # TenderHub — homepage lists tenders, grants, and jobs; selector limits to /tender/ only.
+  # Page: https://www.tenderhub.md/en
+  - id: tenderhub_en_tenders
+    name: TenderHub — Tenders (EN)
+    type: html_links
+    url: https://www.tenderhub.md/en
+    link_selector: 'a.link-to-data[href*="/en/tender/"]'
+    item_prefix: "https://www.tenderhub.md/en/tender/"
+
+  # --- Official procurement portals (Pan-European, Baltic, Nordic, UA/MD/RO) ---
+  # Implemented via plain HTTP: TED v3 search (https://api.ted.europa.eu), Prozorro Central Unit
+  # (https://api.prozorro.gov.ua), MTender OCDS list + record packages (https://public.mtender.gov.md/tenders/).
+  # Sweden Visma TendSign and Romania e-licitatie.ro are JS-heavy SPAs — expect Playwright (or a custom export)
+  # if you need them; they stay disabled here.
+  # Other Baltic/Nordic homepages: no stable RSS on the root URL — keep disabled until you add a feed or selector.
+
+  - id: ted_eu_oj
+    name: TED — Notice search (API v3)
+    type: ted_search
+    url: https://ted.europa.eu
+    api_base: https://api.ted.europa.eu
+    lookback_days: 7
+    limit: 50
+    max_pages: 1
+    title_lang: eng
+    fields:
+      - ND
+      - TI
+      - publication-date
+      - links
+
+  - id: ee_riigihanked
+    name: Estonia — Public Procurement Register (Riigihangete register)
+    enabled: false
+    type: rss
+    url: https://riigihanked.riik.ee
+
+  - id: lv_iub
+    name: Latvia — IUB Procurement Monitoring Bureau
+    enabled: false
+    type: rss
+    url: https://info.iub.gov.lv
+    content_locale: lv
+
+  - id: lv_eis
+    name: Latvia — EIS Electronic Procurement System
+    enabled: false
+    type: rss
+    url: https://www.eis.gov.lv
+    content_locale: lv
+
+  - id: lt_cvp_is
+    name: Lithuania — CVP IS (viesiejipirkimai.lt)
+    enabled: false
+    type: rss
+    url: https://viesiejipirkimai.lt
+    content_locale: lt
+
+  - id: fi_hilma
+    name: Finland — Hilma (hankintailmoitukset.fi)
+    enabled: false
+    type: rss
+    url: https://www.hankintailmoitukset.fi/en/
+
+  - id: no_doffin
+    name: Norway — Doffin
+    enabled: false
+    type: rss
+    url: https://www.doffin.no
+
+  - id: dk_udbud
+    name: Denmark — udbud.dk
+    enabled: false
+    type: rss
+    url: https://www.udbud.dk
+
+  - id: se_visma_tendsign
+    name: Sweden — Visma TendSign (JS-heavy; use Playwright if needed)
+    enabled: false
+    type: rss
+    url: https://www.vismatendersign.se
+
+  - id: ua_prozorro
+    name: Ukraine — Prozorro (open API)
+    type: prozorro_tenders
+    url: https://prozorro.gov.ua/en
+    api_base: https://api.prozorro.gov.ua
+    limit: 25
+
+  - id: md_mtender
+    name: Moldova — MTender (OCDS open data)
+    type: mtender_ocds
+    url: https://mtender.gov.md/en
+    list_url: https://public.mtender.gov.md/tenders/
+    lookback_days: 7
+    limit: 15
+    max_pages: 3
+
+  - id: ro_e_licitatie
+    name: Romania — e-Licitatie / SICAP (JS-heavy; use Playwright if needed)
+    enabled: false
+    type: rss
+    url: https://www.e-licitatie.ro
+
+email:
+  subject_prefix: "[Tenders]"
+  # Recipients (merged with EMAIL_TO in .env). Sender = SMTP_FROM in .env.
+  to:
+    - info@guzun.ee
+
+# Used only by `python -m tender_agent daemon` (optional). Cron users can ignore.
+schedule:
+  hour: 8
+  minute: 0
+  timezone: local
