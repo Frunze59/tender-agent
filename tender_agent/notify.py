@@ -45,16 +45,42 @@ def _recipients(config_to: list[str]) -> list[str]:
     return out
 
 
+def build_email_plain(items: list[TenderItem], subject_prefix: str) -> tuple[str, str]:
+    """Plain-text body for multipart/alternative (better deliverability and CLI clients)."""
+    lines: list[str] = [f"{subject_prefix.strip()} {len(items)} new tender(s)", ""]
+    for it in items:
+        lines.append(f"- {it.source_name}: {it.title}")
+        lines.append(f"  {it.link}")
+        lines.append("")
+    subject = f"{subject_prefix} {len(items)} new tender(s)"
+    return subject, "\n".join(lines).rstrip() + "\n"
+
+
 def build_email_html(items: list[TenderItem], subject_prefix: str) -> tuple[str, str]:
+    """
+    HTML fragment with inline styles only — many clients (notably Gmail) ignore <style> blocks
+    and external CSS; inline attributes are the portable choice.
+    """
     lines = []
     for it in items:
         safe_title = escape(it.title)
         safe_link = escape(it.link, quote=True)
         safe_src = escape(it.source_name)
         lines.append(
-            f"<li><strong>{safe_src}</strong>: <a href=\"{safe_link}\">{safe_title}</a></li>"
+            "<li style=\"margin:0 0 12px 0;\">"
+            f"<span style=\"color:#333;font-weight:600;\">{safe_src}</span>"
+            "<span style=\"color:#666;\"> — </span>"
+            f"<a href=\"{safe_link}\" style=\"color:#0b57d0;text-decoration:underline;\">{safe_title}</a>"
+            "</li>"
         )
-    body = "<ul>" + "".join(lines) + "</ul>"
+    inner = "<ul style=\"margin:12px 0 0 0;padding-left:1.25em;list-style-type:disc;\">" + "".join(lines) + "</ul>"
+    body = (
+        "<div style=\"font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;"
+        "font-size:15px;line-height:1.5;color:#1a1a1a;max-width:640px;\">"
+        f"<p style=\"margin:0 0 8px 0;font-size:14px;color:#555;\">"
+        f"{escape(subject_prefix.strip())} · {len(items)} new tender(s)</p>"
+        f"{inner}</div>"
+    )
     subject = f"{subject_prefix} {len(items)} new tender(s)"
     return subject, body
 
@@ -70,11 +96,13 @@ def send_tender_email(
     cfg = _smtp_settings()
     to_list = _recipients(recipients)
     subject, html = build_email_html(items, subject_prefix)
+    _, plain = build_email_plain(items, subject_prefix)
 
     msg = MIMEMultipart("alternative")
     msg["Subject"] = subject
     msg["From"] = str(cfg["from_addr"])
     msg["To"] = ", ".join(to_list)
+    msg.attach(MIMEText(plain, "plain", "utf-8"))
     msg.attach(MIMEText(html, "html", "utf-8"))
 
     with smtplib.SMTP(cfg["host"], int(cfg["port"]), timeout=60) as smtp:
