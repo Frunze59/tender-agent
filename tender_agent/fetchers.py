@@ -13,12 +13,24 @@ from .models import TenderItem
 
 logger = logging.getLogger(__name__)
 
-USER_AGENT = "tender-agent/0.1 (+https://github.com/local/tender-agent)"
+# Browser-like defaults: some sites (CIVIC.MD, TenderHub) return 415 from datacenter IPs
+# when the client looks non-browser (e.g. GitHub Actions runners).
+_BROWSER_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+    ),
+    "Accept": (
+        "text/html,application/xhtml+xml,application/xml;q=0.9,"
+        "image/avif,image/webp,*/*;q=0.8"
+    ),
+    "Accept-Language": "en-US,en;q=0.9",
+}
 
 
 def _session() -> requests.Session:
     s = requests.Session()
-    s.headers.update({"User-Agent": USER_AGENT})
+    s.headers.update(_BROWSER_HEADERS)
     return s
 
 
@@ -265,7 +277,13 @@ def fetch_rss(
     source_name: str,
     url: str,
 ) -> list[TenderItem]:
-    r = session.get(url, timeout=60)
+    r = session.get(
+        url,
+        timeout=60,
+        headers={
+            "Accept": "application/rss+xml, application/atom+xml, application/xml, text/xml, */*;q=0.8",
+        },
+    )
     r.raise_for_status()
     parsed = feedparser.parse(r.content)
     if getattr(parsed, "bozo", False) and not parsed.entries:
