@@ -1,0 +1,50 @@
+# Send a single test message to EMAIL_TO (uses same SMTP secrets as the daily job).
+# Actions → Test SMTP email → Run workflow
+
+name: Test SMTP email
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    env:
+      SMTP_HOST: ${{ secrets.SMTP_HOST }}
+      SMTP_PORT: ${{ secrets.SMTP_PORT }}
+      SMTP_USER: ${{ secrets.SMTP_USER }}
+      SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
+      SMTP_FROM: ${{ secrets.SMTP_FROM }}
+      SMTP_USE_TLS: ${{ secrets.SMTP_USE_TLS }}
+      EMAIL_TO: ${{ secrets.EMAIL_TO }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install package
+        run: pip install -r requirements.txt
+
+      - name: Send test email
+        run: |
+          python -c "
+          from pathlib import Path
+          from tender_agent.models import TenderItem
+          from tender_agent.notify import send_tender_email
+          import os
+          to = os.environ.get('EMAIL_TO', '').strip()
+          if not to:
+              raise SystemExit('Set GitHub secret EMAIL_TO')
+          send_tender_email(
+              [TenderItem('test', 'Tender agent (test)', 'If you see this, SMTP from GitHub Actions works.', 'https://github.com/${{ github.repository }}', '', None)],
+              subject_prefix='[Tender agent TEST]',
+              recipients=[to],
+          )
+          print('Sent test email to', to)
+          "
