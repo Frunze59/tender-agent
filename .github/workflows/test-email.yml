@@ -1,10 +1,16 @@
-# Send a single test message to EMAIL_TO (uses same SMTP secrets as the daily job).
+# Send a single test message (same SMTP secrets as the daily job).
 # Actions → Test SMTP email → Run workflow
+# Recipient: repo secret EMAIL_TO, or the optional "recipient" field when you run the workflow.
 
 name: Test SMTP email
 
 on:
   workflow_dispatch:
+    inputs:
+      recipient:
+        description: "Optional — to address if EMAIL_TO secret is empty (e.g. info@guzun.ee)"
+        required: false
+        default: ""
 
 permissions:
   contents: read
@@ -20,6 +26,7 @@ jobs:
       SMTP_FROM: ${{ secrets.SMTP_FROM }}
       SMTP_USE_TLS: ${{ secrets.SMTP_USE_TLS }}
       EMAIL_TO: ${{ secrets.EMAIL_TO }}
+      EMAIL_TO_OVERRIDE: ${{ github.event.inputs.recipient }}
 
     steps:
       - uses: actions/checkout@v4
@@ -34,13 +41,16 @@ jobs:
       - name: Send test email
         run: |
           python -c "
-          from pathlib import Path
           from tender_agent.models import TenderItem
           from tender_agent.notify import send_tender_email
           import os
-          to = os.environ.get('EMAIL_TO', '').strip()
+          to = (os.environ.get('EMAIL_TO_OVERRIDE', '').strip()
+                or os.environ.get('EMAIL_TO', '').strip())
           if not to:
-              raise SystemExit('Set GitHub secret EMAIL_TO')
+              raise SystemExit(
+                  'No recipient. Either: (1) add Actions secret EMAIL_TO in repo Settings, '
+                  'or (2) run this workflow again and fill the \"recipient\" input.'
+              )
           send_tender_email(
               [TenderItem('test', 'Tender agent (test)', 'If you see this, SMTP from GitHub Actions works.', 'https://github.com/${{ github.repository }}', '', None)],
               subject_prefix='[Tender agent TEST]',

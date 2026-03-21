@@ -54,18 +54,7 @@ keyword_pillars:
     - Baltic-Nordic
     - Northern Europe
 
-  # Remove the `funding` key entirely (or set to []) to only require activity + geography.
-  funding:
-    - Erasmus+
-    - ESF
-    - ERDF
-    - Interreg
-    - Horizon
-    - EEA grants
-    - study visit programme
-    - mobility programme
-    - transnational
-    - cross-border
+  # funding: omitted — only activity + geography are required (add a non-empty `funding` list to require programme keywords too).
 
   # Latvian / Lithuanian overlays (extend as needed). Empty pillar keys inherit primary lists.
   additional_locales:
