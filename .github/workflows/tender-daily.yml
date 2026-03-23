@@ -71,13 +71,23 @@ jobs:
         if: steps.gate.outputs.proceed == 'true'
         run: pip install -r requirements.txt
 
-      - name: Cache dedupe database
+      - name: Restore dedupe database
         if: steps.gate.outputs.proceed == 'true'
-        uses: actions/cache@v4
+        id: seen-db-restore
+        uses: actions/cache/restore@v4
         with:
           path: data/seen.db
-          key: tender-seen-db-v1-${{ github.repository_id }}
+          key: tender-seen-db-v2-${{ github.repository_id }}-${{ github.run_id }}
+          restore-keys: |
+            tender-seen-db-v2-${{ github.repository_id }}-
 
       - name: Run tender agent
         if: steps.gate.outputs.proceed == 'true'
         run: python -m tender_agent run --config config.github.yaml --db data/seen.db
+
+      - name: Save dedupe database
+        if: steps.gate.outputs.proceed == 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: data/seen.db
+          key: tender-seen-db-v2-${{ github.repository_id }}-${{ github.run_id }}
